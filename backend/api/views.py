@@ -48,7 +48,8 @@ class CustomUserViewSet(UserViewSet):
         )
         return self.get_paginated_response(serializer.data)
 
-    @action(detail=True, methods=('post', 'delete'))
+    @action(detail=True, methods=('post', 'delete'),
+            permission_classes=(IsAuthenticatedOrReadOnly,),)
     def subscribe(self, request, id=None):
         user = self.request.user
         author = get_object_or_404(User, pk=id)
@@ -119,8 +120,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     def add(self, model, user, pk, name):
         recipe = get_object_or_404(Recipe, pk=pk)
-        relation = model.objects.filter(user=user, recipe=recipe)
-        if relation.exists():
+        bind = model.objects.filter(user=user, recipe=recipe)
+        if bind.exists():
             return Response(
                 {'errors': f'Нельзя повторно добавить рецепт в {name}'},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -129,15 +130,15 @@ class RecipeViewSet(viewsets.ModelViewSet):
         serializer = RecipeSubscibeSerializer(recipe)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    def delete_relation(self, model, user, pk, name):
+    def delete_bind(self, model, user, pk, name):
         recipe = get_object_or_404(Recipe, pk=pk)
-        relation = model.objects.filter(user=user, recipe=recipe)
-        if not relation.exists():
+        bind = model.objects.filter(user=user, recipe=recipe)
+        if not bind.exists():
             return Response(
                 {'errors': f'Нельзя повторно удалить рецепт из {name}'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        relation.delete()
+        bind.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(
@@ -153,7 +154,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
             return self.add(Favorite, user, pk, name)
         if request.method == 'DELETE':
             name = 'избранного'
-            return self.delete_relation(Favorite, user, pk, name)
+            return self.delete_bind(Favorite, user, pk, name)
         return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
     @action(
@@ -169,7 +170,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
             return self.add(ShoppingCart, user, pk, name)
         if request.method == 'DELETE':
             name = 'списка покупок'
-            return self.delete_relation(ShoppingCart, user, pk, name)
+            return self.delete_bind(ShoppingCart, user, pk, name)
         return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
     @action(
@@ -181,28 +182,32 @@ class RecipeViewSet(viewsets.ModelViewSet):
     )
     def download_shopping_cart(self, request):
         shopping_cart = ShoppingCart.objects.filter(user=self.request.user)
-        recipes = [item.recipe.id for item in shopping_cart]
-        buy = (
+        recipes = ()
+        for i in shopping_cart:
+            recipes.append(i.recipe.id)
+        # [i.recipe.id for i in shopping_cart]
+
+        overall = (
             RecipeIngredients.objects.filter(recipe__in=recipes)
             .values('ingredient')
             .annotate(amount=Sum('amount'))
         )
 
-        purchased = [
+        shopping_list = [
             'Список покупок:',
         ]
-        for item in buy:
-            ingredient = Ingredient.objects.get(pk=item['ingredient'])
-            amount = item['amount']
-            purchased.append(
+        for i in overall:
+            ingredient = Ingredient.objects.get(pk=i['ingredient'])
+            amount = i['amount']
+            shopping_list.append(
                 f'{ingredient.name}: {amount}, '
                 f'{ingredient.measurement_unit}'
             )
-        purchased_in_file = '\n'.join(purchased)
+        file_shopping_list = '\n'.join(shopping_list)
 
-        response = HttpResponse(purchased_in_file, content_type='text/plain')
-        response[
-            'Content-Disposition'
-        ] = 'attachment; filename=shopping-list.txt'
+        response = HttpResponse(file_shopping_list, content_type='text/plain')
+        # response[
+        #     'Content-Disposition'
+        # ] = 'attachment; filename=shopping-list.txt'
 
         return response

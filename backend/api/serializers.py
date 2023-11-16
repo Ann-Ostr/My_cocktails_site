@@ -15,7 +15,7 @@ from recipes.models import (
     Tag,
 )
 from users.models import Subscription, User
-# from api.pagination import PageNumberPagination
+from api.pagination import PageNumberPagination
 
 
 class Base64ImageField(serializers.ImageField):
@@ -48,9 +48,23 @@ class TagSerializer(serializers.ModelSerializer):
 
 
 class RecipeIngredientsSerializer(serializers.ModelSerializer):
+    name = serializers.SerializerMethodField()
+    measurement_unit = serializers.SerializerMethodField()
+
+    def get_name(self, obj):
+        ingredients = Ingredient.objects.filter(id=obj.id)
+        serializer = IngredientSerializer(ingredients, many=True)
+        return serializer.data[0]['name']
+
+    def get_measurement_unit(self, obj):
+        ingredients = Ingredient.objects.filter(id=obj.id)
+        serializer = IngredientSerializer(ingredients, many=True)
+        return serializer.data[0]['measurement_unit']
+   
     class Meta:
         model = RecipeIngredients
-        fields = ('id', 'recipe', 'ingredient', 'amount')
+        fields = ('id', 'name', 'measurement_unit', 'amount', )
+
 
 
 class RecipeSubscibeSerializer(serializers.ModelSerializer):
@@ -90,10 +104,11 @@ class CreateUpdateRecipeIngredientsSerializer(serializers.ModelSerializer):
 class CustomUserSerializer(UserSerializer):
     # поле подписки, котрого нет в модели User
     is_subscribed = serializers.SerializerMethodField()
+    
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'first_name', 'last_name', 'email',
+        fields = ('email', 'id',  'username', 'first_name', 'last_name', 
                   'is_subscribed')
 
     def get_is_subscribed(self, obj):
@@ -101,13 +116,14 @@ class CustomUserSerializer(UserSerializer):
         return Subscription.objects.filter(
             author=obj.id, user=id_user
         ).exists()
+   
 
 
 class RecipeSerializer(serializers.ModelSerializer):
     author = CustomUserSerializer(read_only=True)
     tags = TagSerializer(many=True)
     ingredients = serializers.SerializerMethodField()
-    is_favorite = serializers.SerializerMethodField()
+    is_favorited = serializers.SerializerMethodField()
     is_in_shopping_cart = serializers.SerializerMethodField()
 
     def get_ingredients(self, obj):
@@ -115,7 +131,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         serializer = RecipeIngredientsSerializer(ingredients, many=True)
         return serializer.data
 
-    def get_is_favorite(self, obj):
+    def get_is_favorited(self, obj):
         user_id = self.context.get('request').user.id
         return Favorite.objects.filter(user=user_id, recipe=obj.id).exists()
 
@@ -127,9 +143,10 @@ class RecipeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Recipe
-        fields = ('id', 'author', 'name', 'image', 'text',
-                  'ingredients', 'tags', 'cooking_time', 'is_favorite',
-                  'is_in_shopping_cart')
+        fields = ('id', 'tags', 'author', 'ingredients', 'is_favorited',
+                  'is_in_shopping_cart', 'name', 'image', 'text',
+                  'cooking_time',
+                  )
 
 
 class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
@@ -226,12 +243,12 @@ class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Recipe
-        fields = ('id', 'author', 'name', 'image', 'text',
-                  'ingredients', 'tags', 'cooking_time')
+        fields = ('id', 'tags', 'author', 'ingredients', 'name', 'image',
+                  'text', 'cooking_time')
 
 
 class SubscriptionSerializer(CustomUserSerializer,
-                             # PageNumberPaginatio
+                             PageNumberPagination
                              ):
     email = serializers.ReadOnlyField()
     id = serializers.ReadOnlyField()
