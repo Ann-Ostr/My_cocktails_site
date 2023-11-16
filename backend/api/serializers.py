@@ -104,7 +104,6 @@ class CreateUpdateRecipeIngredientsSerializer(serializers.ModelSerializer):
 class CustomUserSerializer(UserSerializer):
     # поле подписки, котрого нет в модели User
     is_subscribed = serializers.SerializerMethodField()
-    
 
     class Meta:
         model = User
@@ -116,7 +115,7 @@ class CustomUserSerializer(UserSerializer):
         return Subscription.objects.filter(
             author=obj.id, user=id_user
         ).exists()
-   
+
 
 
 class RecipeSerializer(serializers.ModelSerializer):
@@ -200,7 +199,7 @@ class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
         recipe.tags.set(tags)
         # Для каждого ингридиента из списка
         for ingredient in ingredients:
-            # узнаем кол-во 
+            # узнаем кол-во
             amount = ingredient.get('amount')
             # создадим новую запись или получим существующий экземпляр из БД
             ingredient = get_object_or_404(
@@ -214,14 +213,17 @@ class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
         return recipe
 
     def update(self, instance, validated_data):
+        # if validated_data.pop('tags').exist():
         tags = validated_data.pop('tags', None)
         if tags is not None:
             instance.tags.set(tags)
+        else:
+            raise exceptions.ValidationError(
+                    'Поле тег в рецепте должно быть')
 
         ingredients = validated_data.pop('ingredients', None)
         if ingredients is not None:
             instance.ingredients.clear()
-
             for ingredient in ingredients:
                 amount = ingredient.get('amount')
                 ingredient = get_object_or_404(
@@ -233,6 +235,9 @@ class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
                     ingredient=ingredient,
                     defaults={'amount': amount},
                 )
+        else:
+            raise exceptions.ValidationError(
+                    'Поле ингридиент в рецепте должно быть')
         return super().update(instance, validated_data)
 
     def to_representation(self, instance):
@@ -250,18 +255,18 @@ class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
 class SubscriptionSerializer(CustomUserSerializer,
                              PageNumberPagination
                              ):
-    email = serializers.ReadOnlyField()
-    id = serializers.ReadOnlyField()
-    username = serializers.ReadOnlyField()
-    first_name = serializers.ReadOnlyField()
-    last_name = serializers.ReadOnlyField()
+    email = serializers.ReadOnlyField(source="author.email")
+    id = serializers.ReadOnlyField(source="author.id")
+    username = serializers.ReadOnlyField(source="author.username")
+    first_name = serializers.ReadOnlyField(source="author.first_name")
+    last_name = serializers.ReadOnlyField(source="author.last_name")
     recipes = serializers.SerializerMethodField()
     recipes_count = serializers.SerializerMethodField()
     is_subscribed = serializers.SerializerMethodField()
 
     class Meta:
         model = Subscription
-        fields = ('id', 'username', 'first_name', 'last_name', 'email',
+        fields = ('email', 'id', 'username', 'first_name', 'last_name', 
                   'is_subscribed', 'recipes', 'recipes_count',)
 
     def get_recipes(self, obj):
