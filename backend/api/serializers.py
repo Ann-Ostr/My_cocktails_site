@@ -52,12 +52,12 @@ class RecipeIngredientsSerializer(serializers.ModelSerializer):
     measurement_unit = serializers.SerializerMethodField()
 
     def get_name(self, obj):
-        ingredients = Ingredient.objects.filter(id=obj.id)
+        ingredients = Ingredient.objects.filter(id=obj.ingredient_id)
         serializer = IngredientSerializer(ingredients, many=True)
         return serializer.data[0]['name']
 
     def get_measurement_unit(self, obj):
-        ingredients = Ingredient.objects.filter(id=obj.id)
+        ingredients = Ingredient.objects.filter(id=obj.ingredient_id)
         serializer = IngredientSerializer(ingredients, many=True)
         return serializer.data[0]['measurement_unit']
    
