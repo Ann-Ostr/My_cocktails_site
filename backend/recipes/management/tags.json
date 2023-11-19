@@ -1,0 +1,5 @@
+[{"name": "Коктейли-short", "color": "#CD5C5C", "slug": "short"},
+{"name": "Дессерты", "color": "#ADFF2F", "slug": "desserty"},
+{"name": "Вино", "color": "#66CDAA", "slug": "vine"},
+{"name": "Коктейли-long", "color": "#FFC0CB", "slug": "long"}
+]

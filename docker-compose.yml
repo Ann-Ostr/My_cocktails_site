@@ -1,0 +1,49 @@
+version: '3'
+
+volumes:
+  pgdata:
+  static:
+  media:
+
+services:
+
+  db:
+    image: postgres:13
+    container_name: db
+    volumes:
+      - pgdata:/var/lib/postgresql/data/
+    env_file: .env
+
+  backend:
+#    image: foodgram_backend:latest
+#    container_name: foodgram_backend
+    build: ./backend/
+    env_file: .env
+    restart: always
+    volumes:
+      - static:/collected_static
+      - media:/media/
+    depends_on:
+      - db
+
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    volumes:
+      - ./frontend/:/app/result_build/
+
+  nginx:
+    image: nginx:1.19.3
+    ports:
+      - "80:80"
+    volumes:
+      - ./infra/nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./frontend/build:/usr/share/nginx/html/
+      - ./docs/:/usr/share/nginx/html/api/docs/
+      - static:/staticfiles/
+      - media:/media/
+    depends_on:
+      - backend
+

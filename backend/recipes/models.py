@@ -66,7 +66,7 @@ class Recipe(models.Model):
         verbose_name='Фото блюда рецепта',
         help_text='Фото блюда рецепта',
         # атрибут обеспечивает способ указания каталога загрузки и имени файла
-        upload_to='recipes/',
+        upload_to='media/',
     )
     text = models.TextField(
         verbose_name='Описание рецепта',
