@@ -118,7 +118,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
             model.objects.create(user=user, recipe=recipe)
             serializer = RecipeSubscibeSerializer(recipe)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        except:
+        except Exception:
             return Response({'errors': 'Такого рецепта не существует'},
                             status=status.HTTP_400_BAD_REQUEST,)
 

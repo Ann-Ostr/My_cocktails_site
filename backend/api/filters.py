@@ -18,15 +18,15 @@ class RecipeTagFilter(FilterSet):
     )
 
     def favorited_method(self, queryset, name, value):
-        try:
+        if queryset.filter(favorite__user=self.request.user).exists():
             return queryset.filter(favorite__user=self.request.user)
-        except:
+        else:
             return queryset
 
     def in_shopping_cart_method(self, queryset, name, value):
-        try:
+        if queryset.filter(shopping_cart__user=self.request.user).exists():
             return queryset.filter(shopping_cart__user=self.request.user)
-        except:
+        else:
             return queryset
 
     class Meta:
