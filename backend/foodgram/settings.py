@@ -10,8 +10,9 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.2/ref/settings/
 """
 
-from pathlib import Path
 import os
+from pathlib import Path
+
 # from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -28,10 +29,10 @@ SECRET_KEY = 'django-insecure-6bqjk$gh&ga-i&zj9nj)ppz93y!zh67le2ygjj-*h1d1@shqx1
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    '158.160.76.144',
-    'localhost',
-    'backend',
-    '127.0.0.1',
+    # '158.160.76.144',
+    # 'localhost',
+    # 'backend',
+    # '127.0.0.1',
 ]
 
 # Application definition
@@ -100,8 +101,8 @@ DATABASES = {
         'NAME': os.getenv('POSTGRES_DB', 'django'),
         'USER': os.getenv('POSTGRES_USER', 'django_user'),
         'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'mysecretpassword'),
-        'HOST': 'localhost',
-        'PORT': '',
+        # 'HOST': 'localhost',
+        # 'PORT': '',
         'HOST': os.getenv('DB_HOST', ''),
         'PORT': os.getenv('DB_PORT', 5432)
     }
@@ -145,10 +146,12 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/3.2/howto/static-files/
 
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'collected_static')
+STATIC_ROOT = BASE_DIR / 'collected_static'
+# STATIC_ROOT = os.path.join(BASE_DIR, 'collected_static')
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, '/media/')
+MEDIA_URL = 'https://egoza.hopto.org/media/'
+MEDIA_ROOT = '/media/'
+# MEDIA_ROOT = os.path.join(BASE_DIR, '/media/')
 # Default primary key field type/
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
 
@@ -169,7 +172,6 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "api.pagination.LimitPagination",
     'PAGE_SIZE': 6,
 }
-
 
 
 DJOSER = {

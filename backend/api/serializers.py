@@ -1,21 +1,15 @@
-from django.core.validators import MinValueValidator
-from djoser.serializers import UserSerializer, UserCreateSerializer
 import base64
-from django.core.files.base import ContentFile
-from django.shortcuts import get_object_or_404
 
+from django.core.files.base import ContentFile
+from django.core.validators import MinValueValidator
+from django.shortcuts import get_object_or_404
+from djoser.serializers import UserCreateSerializer, UserSerializer
 from rest_framework import exceptions, serializers
 
-from recipes.models import (
-    Favorite,
-    Ingredient,
-    Recipe,
-    RecipeIngredients,
-    ShoppingCart,
-    Tag,
-)
-from users.models import Subscription, User
 from api.pagination import PageNumberPagination
+from recipes.models import (Favorite, Ingredient, Recipe, RecipeIngredients,
+                            ShoppingCart, Tag)
+from users.models import Subscription, User
 
 
 class Base64ImageField(serializers.ImageField):
@@ -60,11 +54,10 @@ class RecipeIngredientsSerializer(serializers.ModelSerializer):
         ingredients = Ingredient.objects.filter(id=obj.ingredient_id)
         serializer = IngredientSerializer(ingredients, many=True)
         return serializer.data[0]['measurement_unit']
-   
+
     class Meta:
         model = RecipeIngredients
         fields = ('id', 'name', 'measurement_unit', 'amount', )
-
 
 
 class RecipeSubscibeSerializer(serializers.ModelSerializer):
@@ -107,15 +100,14 @@ class CustomUserSerializer(UserSerializer):
 
     class Meta:
         model = User
-        fields = ('email', 'id',  'username', 'first_name', 'last_name', 
-                  'is_subscribed')
+        fields = ('email', 'id', 'username', 'first_name',
+                  'last_name', 'is_subscribed')
 
     def get_is_subscribed(self, obj):
         id_user = self.context.get('request').user.id
         return Subscription.objects.filter(
             author=obj.id, user=id_user
         ).exists()
-
 
 
 class RecipeSerializer(serializers.ModelSerializer):
@@ -155,6 +147,10 @@ class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
     )
     ingredients = CreateUpdateRecipeIngredientsSerializer(many=True)
     image = Base64ImageField()
+    image_url = serializers.SerializerMethodField(
+        'get_image_url',
+        read_only=True,
+    )
     cooking_time = serializers.IntegerField(
         validators=(
             MinValueValidator(1, message='Не может быть меньше 1'),)
@@ -171,8 +167,7 @@ class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
             ingredient_set.add(i['id'])
             ingredient_list.append(i['id'])
         if len(ingredient_set) != len(ingredient_list):
-            raise exceptions.ValidationError(
-                    'Ингрединты в рецепте повторяются')
+            raise exceptions.ValidationError('Ингрединты повторяются')
         return value
 
     # Проверки тегов для рецепта
@@ -185,8 +180,7 @@ class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
             tag_set.add(i)
             tag_list.append(i)
         if len(tag_set) != len(tag_list):
-            raise exceptions.ValidationError(
-                    'Теги в рецепте повторяются')
+            raise exceptions.ValidationError('Теги в рецепте повторяются')
         return value
 
     def create(self, validated_data):
@@ -212,14 +206,18 @@ class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
             )
         return recipe
 
+    def get_image_url(self, obj):
+        if obj.image:
+            return obj.image.url
+        return None
+
     def update(self, instance, validated_data):
         # if validated_data.pop('tags').exist():
         tags = validated_data.pop('tags', None)
         if tags is not None:
             instance.tags.set(tags)
         else:
-            raise exceptions.ValidationError(
-                    'Поле тег в рецепте должно быть')
+            raise exceptions.ValidationError('Поле тег в рецепте должно быть')
 
         ingredients = validated_data.pop('ingredients', None)
         if ingredients is not None:
@@ -236,8 +234,7 @@ class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
                     defaults={'amount': amount},
                 )
         else:
-            raise exceptions.ValidationError(
-                    'Поле ингридиент в рецепте должно быть')
+            raise exceptions.ValidationError('Поле ингридиент должно быть')
         return super().update(instance, validated_data)
 
     def to_representation(self, instance):
@@ -249,7 +246,7 @@ class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Recipe
         fields = ('id', 'tags', 'author', 'ingredients', 'name', 'image',
-                  'text', 'cooking_time')
+                  'image_url', 'text', 'cooking_time')
 
 
 class SubscriptionSerializer(CustomUserSerializer,
@@ -266,7 +263,7 @@ class SubscriptionSerializer(CustomUserSerializer,
 
     class Meta:
         model = Subscription
-        fields = ('email', 'id', 'username', 'first_name', 'last_name', 
+        fields = ('email', 'id', 'username', 'first_name', 'last_name',
                   'is_subscribed', 'recipes', 'recipes_count',)
 
     def get_recipes(self, obj):

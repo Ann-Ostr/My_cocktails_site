@@ -2,37 +2,23 @@ from django.db.models import Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.pagination import LimitOffsetPagination
 from djoser.views import UserViewSet
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import (
-    IsAuthenticated,
-    IsAuthenticatedOrReadOnly
-)
+from rest_framework.pagination import LimitOffsetPagination
+from rest_framework.permissions import (IsAuthenticated,
+                                        IsAuthenticatedOrReadOnly)
 from rest_framework.response import Response
 
-
-from recipes.models import (
-    Ingredient,
-    Favorite,
-    Recipe,
-    RecipeIngredients,
-    ShoppingCart,
-    Tag,
-)
-from users.models import Subscription, User
-from api.serializers import (
-    IngredientSerializer,
-    RecipeCreateUpdateSerializer,
-    RecipeSerializer,
-    RecipeSubscibeSerializer,
-    SubscriptionSerializer,
-    TagSerializer,
-)
 from api.filters import RecipeTagFilter
-
 from api.permissions import IsAuthorOrReadOnly
+from api.serializers import (IngredientSerializer,
+                             RecipeCreateUpdateSerializer, RecipeSerializer,
+                             RecipeSubscibeSerializer, SubscriptionSerializer,
+                             TagSerializer)
+from recipes.models import (Favorite, Ingredient, Recipe, RecipeIngredients,
+                            ShoppingCart, Tag)
+from users.models import Subscription, User
 
 
 class CustomUserViewSet(UserViewSet):
@@ -128,14 +114,13 @@ class RecipeViewSet(viewsets.ModelViewSet):
             if bind.exists():
                 return Response(
                     {'errors': f'Нельзя повторно добавить рецепт в {name}'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                    )
+                    status=status.HTTP_400_BAD_REQUEST,)
             model.objects.create(user=user, recipe=recipe)
             serializer = RecipeSubscibeSerializer(recipe)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         except:
-            return Response({'errors': f'Такого рецепта не существует'},
-                    status=status.HTTP_400_BAD_REQUEST,)
+            return Response({'errors': 'Такого рецепта не существует'},
+                            status=status.HTTP_400_BAD_REQUEST,)
 
     def delete_bind(self, model, user, pk, name):
         recipe = get_object_or_404(Recipe, pk=pk)
@@ -192,7 +177,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
         recipes = ()
         for i in shopping_cart:
             recipes.append(i.recipe.id)
-        # [i.recipe.id for i in shopping_cart]
 
         overall = (
             RecipeIngredients.objects.filter(recipe__in=recipes)

@@ -1,5 +1,4 @@
 from django_filters import ModelMultipleChoiceFilter
-
 from django_filters.rest_framework import FilterSet, filters
 
 from recipes.models import Recipe, Tag
@@ -25,10 +24,10 @@ class RecipeTagFilter(FilterSet):
             return queryset
 
     def in_shopping_cart_method(self, queryset, name, value):
-            try:
-                return queryset.filter(shopping_cart__user=self.request.user)
-            except:
-                return queryset
+        try:
+            return queryset.filter(shopping_cart__user=self.request.user)
+        except:
+            return queryset
 
     class Meta:
         model = Recipe

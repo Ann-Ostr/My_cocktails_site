@@ -1,5 +1,5 @@
-from django.db import models
 from django.core.validators import MinValueValidator
+from django.db import models
 
 from users.models import User
 
@@ -66,7 +66,7 @@ class Recipe(models.Model):
         verbose_name='Фото блюда рецепта',
         help_text='Фото блюда рецепта',
         # атрибут обеспечивает способ указания каталога загрузки и имени файла
-        upload_to='media/',
+        upload_to='recipes/images/',
     )
     text = models.TextField(
         verbose_name='Описание рецепта',
@@ -129,7 +129,7 @@ class RecipeIngredients(models.Model):
     recipe = models.ForeignKey(
         Recipe,
         verbose_name='Рецепт',
-        on_delete=models.CASCADE, 
+        on_delete=models.CASCADE,
     )
     ingredient = models.ForeignKey(
         Ingredient,

@@ -1,8 +1,10 @@
 import json
-import psycopg2
 import os
+
+import psycopg2
+
 # Флаг первичной загрузки/очистки данных в БД
-INI=os.getenv('INI', '0')
+INI = os.getenv('INI', '0')
 if INI == '1':
 
     # Подключение к базе

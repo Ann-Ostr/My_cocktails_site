@@ -15,36 +15,34 @@ services:
     env_file: .env
 
   backend:
-    image: eggozza/foodgram_backend:latest
+#    image: foodgram_backend:latest
 #    container_name: foodgram_backend
-    # build: ./backend/
+    build: ./backend/
     env_file: .env
     restart: always
     volumes:
-      - static:/backend_static
+      - static:/collected_static
       - media:/media/
     depends_on:
       - db
 
 
   frontend:
-    image: eggozza/foodgram_frontend:latest
-    # build:
-    #   context: ./frontend
-    #   dockerfile: Dockerfile
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     volumes:
       - ./frontend/:/app/result_build/
 
-  infra:
-    image: eggozza/infra
+  nginx:
+    image: nginx:1.19.3
     ports:
-      - "8090:80"
+      - "80:80"
     volumes:
-      - ./infra/nginx.conf:/etc/nginx/conf.d/
+      - ./infra/nginx.conf:/etc/nginx/conf.d/default.conf
       - ./frontend/build:/usr/share/nginx/html/
       - ./docs/:/usr/share/nginx/html/api/docs/
-      - static:/static/
+      - static:/staticfiles/
       - media:/media/
     depends_on:
       - backend
-
