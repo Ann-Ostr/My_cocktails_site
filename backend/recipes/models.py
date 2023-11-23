@@ -39,7 +39,7 @@ class Tag(models.Model):
         max_length=7,
         verbose_name='Цвет тега',
         help_text='Цвет тега',
-        validators=[validate_color,],
+        validators=[validate_color, ],
     )
     slug = models.SlugField(
         max_length=LENGTH,
