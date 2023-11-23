@@ -2,6 +2,7 @@ from django.core.validators import MinValueValidator
 from django.db import models
 
 from users.models import User
+
 from .validators import validate_color
 
 LENGTH = 200
@@ -157,7 +158,7 @@ class RecipeIngredients(models.Model):
         ordering = ('recipe',)
 
     def __str__(self):
-        return f"В рецепте {self.recipe} есть ингредиент {self.ingredient}"  
+        return f"В рецепте {self.recipe} есть ингредиент {self.ingredient}"
 
 
 class Favorite(models.Model):
