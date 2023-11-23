@@ -42,18 +42,21 @@ class TagSerializer(serializers.ModelSerializer):
 
 
 class RecipeIngredientsSerializer(serializers.ModelSerializer):
-    name = serializers.SerializerMethodField()
-    measurement_unit = serializers.SerializerMethodField()
+    name = serializers.ReadOnlyField(source='ingredient.name')
+    measurement_unit = serializers.ReadOnlyField(
+        source='ingredient.measurement_unit')
+    # name = serializers.SerializerMethodField()
+    # measurement_unit = serializers.SerializerMethodField()
 
-    def get_name(self, obj):
-        ingredients = Ingredient.objects.filter(id=obj.ingredient_id)
-        serializer = IngredientSerializer(ingredients, many=True)
-        return serializer.data[0]['name']
+    # # def get_name(self, obj):
+    # #     ingredients = Ingredient.objects.filter(id=obj.ingredient_id)
+    # #     serializer = IngredientSerializer(ingredients, many=True)
+    # #     return serializer.data[0]['name']
 
-    def get_measurement_unit(self, obj):
-        ingredients = Ingredient.objects.filter(id=obj.ingredient_id)
-        serializer = IngredientSerializer(ingredients, many=True)
-        return serializer.data[0]['measurement_unit']
+    # def get_measurement_unit(self, obj):
+    #     ingredients = Ingredient.objects.filter(id=obj.ingredient_id)
+    #     serializer = IngredientSerializer(ingredients, many=True)
+    #     return serializer.data[0]['measurement_unit']
 
     class Meta:
         model = RecipeIngredients
@@ -82,18 +85,6 @@ class CustomUserCreateSerializer(UserCreateSerializer):
                   'last_name', 'password')
 
 
-class CreateUpdateRecipeIngredientsSerializer(serializers.ModelSerializer):
-    # проверка мин.кол-ва ингридиента
-    id = serializers.PrimaryKeyRelatedField(queryset=Ingredient.objects.all())
-    amount = serializers.IntegerField(
-        validators=(MinValueValidator(1, message='Не может быть меньше 1'),)
-    )
-
-    class Meta:
-        model = Ingredient
-        fields = ('id', 'amount')
-
-
 class CustomUserSerializer(UserSerializer):
     # поле подписки, котрого нет в модели User
     is_subscribed = serializers.SerializerMethodField()
@@ -108,6 +99,18 @@ class CustomUserSerializer(UserSerializer):
         return Subscription.objects.filter(
             author=obj.id, user=id_user
         ).exists()
+
+
+class CreateUpdateRecipeIngredientsSerializer(serializers.ModelSerializer):
+    # проверка мин.кол-ва ингридиента
+    id = serializers.PrimaryKeyRelatedField(queryset=Ingredient.objects.all())
+    amount = serializers.IntegerField(
+        validators=(MinValueValidator(1, message='Не может быть меньше 1'),)
+    )
+
+    class Meta:
+        model = Ingredient
+        fields = ('id', 'amount')
 
 
 class RecipeSerializer(serializers.ModelSerializer):
@@ -136,8 +139,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         model = Recipe
         fields = ('id', 'tags', 'author', 'ingredients', 'is_favorited',
                   'is_in_shopping_cart', 'name', 'image', 'text',
-                  'cooking_time',
-                  )
+                  'cooking_time',)
 
 
 class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
@@ -161,12 +163,8 @@ class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
         if not value:
             raise exceptions.ValidationError(
                 'Ингридиент не может быть пустым')
-        ingredient_set = set()
-        ingredient_list = list()
-        for i in value:
-            ingredient_set.add(i['id'])
-            ingredient_list.append(i['id'])
-        if len(ingredient_set) != len(ingredient_list):
+        ingredients_ids = [ingredient['id'] for ingredient in value]
+        if len(ingredients_ids) != len(set(ingredients_ids)):
             raise exceptions.ValidationError('Ингрединты повторяются')
         return value
 
@@ -191,19 +189,16 @@ class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
         # Создадим новый рецепт пока без инг. и тегов
         recipe = Recipe.objects.create(author=author, **validated_data)
         recipe.tags.set(tags)
-        # Для каждого ингридиента из списка
+        all_recipe_inredients = list()
         for ingredient in ingredients:
-            # узнаем кол-во
             amount = ingredient.get('amount')
-            # создадим новую запись или получим существующий экземпляр из БД
             ingredient = get_object_or_404(
-                Ingredient, pk=ingredient.get('id').id
-            )
-            # Поместим ссылку  во вспомогательную таблицу
-            # Не забыв указать к какому рецепту оно относится
-            RecipeIngredients.objects.create(
-                recipe=recipe, ingredient=ingredient, amount=amount
-            )
+                Ingredient, pk=ingredient.get('id').id)
+            recipe_ingreients = RecipeIngredients(recipe=recipe,
+                                                  ingredient=ingredient,
+                                                  amount=amount)
+            all_recipe_inredients.append(recipe_ingreients)
+        RecipeIngredients.objects.bulk_create(all_recipe_inredients)
         return recipe
 
     def get_image_url(self, obj):
@@ -219,18 +214,17 @@ class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
         else:
             raise exceptions.ValidationError('Поле тег в рецепте должно быть')
 
-        ingredients = validated_data.pop('ingredients', None)
-        if ingredients is not None:
+        ingrs = validated_data.pop('ingredients', None)
+        if ingrs is not None:
             instance.ingredients.clear()
-            for ingredient in ingredients:
-                amount = ingredient.get('amount')
-                ingredient = get_object_or_404(
-                    Ingredient, pk=ingredient.get('id').id
-                )
+            for ingr in ingrs:
+                amount = ingr.get('amount')
+                ingr_id = get_object_or_404(
+                    Ingredient, name=ingr.get('id'))
 
                 RecipeIngredients.objects.update_or_create(
                     recipe=instance,
-                    ingredient=ingredient,
+                    ingredient=ingr_id,
                     defaults={'amount': amount},
                 )
         else:

@@ -3,6 +3,11 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from djoser.views import UserViewSet
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from django.db.models import F
+from reportlab.pdfgen.canvas import Canvas
+from reportlab.lib.pagesizes import A4
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import LimitOffsetPagination
@@ -31,52 +36,40 @@ class CustomUserViewSet(UserViewSet):
         queryset = user.follower.all()
         pages = self.paginate_queryset(queryset)
         serializer = SubscriptionSerializer(
-            pages, many=True, context={'request': request}
-        )
+            pages, many=True, context={'request': request})
         return self.get_paginated_response(serializer.data)
 
-    @action(detail=True, methods=('post', 'delete'),
-            permission_classes=(IsAuthenticatedOrReadOnly,),)
+    @action(detail=True, methods=['POST'],
+            permission_classes=[IsAuthenticated])
     def subscribe(self, request, id=None):
         user = self.request.user
         author = get_object_or_404(User, pk=id)
-
         if user == author:
             return Response(
                 {'errors': 'Нельзя подписаться на себя'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+                status=status.HTTP_400_BAD_REQUEST,)
 
-        if self.request.method == 'POST':
-            if Subscription.objects.filter(user=user, author=author).exists():
-                return Response(
-                    {'errors': 'Подписка уже оформлена'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+        if Subscription.objects.filter(user=user, author=author).exists():
+            return Response({'errors': 'Подписка уже оформлена'},
+                            status=status.HTTP_400_BAD_REQUEST,)
 
-            queryset = Subscription.objects.create(author=author, user=user)
-            serializer = SubscriptionSerializer(
-                queryset, context={'request': request}
-            )
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        queryset = Subscription.objects.create(author=author, user=user)
+        serializer = SubscriptionSerializer(queryset,
+                                            context={'request': request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-        if self.request.method == 'DELETE':
-            if not Subscription.objects.filter(
-                user=user, author=author
-            ).exists():
-                return Response(
-                    {'errors': 'Вы уже отписаны'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            subscription = get_object_or_404(
-                Subscription, user=user, author=author
-            )
-            subscription.delete()
-
-            return Response(status=status.HTTP_204_NO_CONTENT)
-
-        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    @subscribe.mapping.delete
+    def delete_subscribe(self, request, id=None):
+        user = self.request.user
+        author = get_object_or_404(User, pk=id)
+        if not Subscription.objects.filter(
+                user=user, author=author).exists():
+            return Response({'errors': 'Вы уже отписаны'},
+                            status=status.HTTP_400_BAD_REQUEST,)
+        subscription = get_object_or_404(Subscription,
+                                         user=user, author=author)
+        subscription.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
@@ -173,32 +166,38 @@ class RecipeViewSet(viewsets.ModelViewSet):
         url_name='download_shopping_cart',
     )
     def download_shopping_cart(self, request):
-        shopping_cart = ShoppingCart.objects.filter(user=self.request.user)
-        recipes = ()
-        for i in shopping_cart:
-            recipes.append(i.recipe.id)
+        ingredients = RecipeIngredients.objects.filter(
+            recipe__shopping_cart__user=request.user).values(
+            name=F('ingredient__name'),
+            unit=F('ingredient__measurement_unit')
+        ).order_by('name').annotate(total=Sum('amount'))
 
-        overall = (
-            RecipeIngredients.objects.filter(recipe__in=recipes)
-            .values('ingredient')
-            .annotate(amount=Sum('amount'))
-        )
-
-        shopping_list = [
-            'Список покупок:',
-        ]
-        for i in overall:
-            ingredient = Ingredient.objects.get(pk=i['ingredient'])
-            amount = i['amount']
-            shopping_list.append(
-                f'{ingredient.name}: {amount}, '
-                f'{ingredient.measurement_unit}'
+        begin_position_x, begin_position_y = 30, 730
+        response = HttpResponse(
+            content_type='application/pdf')
+        response['Content-Disposition'] = (
+            'attachment; filename="shopping-list.pdf"')
+        canvas = Canvas(response, pagesize=A4)
+        pdfmetrics.registerFont(TTFont('DejaVuSerif', 'DejaVuSerif.ttf'))
+        canvas.setFont('DejaVuSerif', 14)
+        canvas.setTitle('СПИСОК ПОКУПОК')
+        canvas.drawString(begin_position_x,
+                          begin_position_y + 40, 'Список покупок: ')
+        canvas.setFont('DejaVuSerif', 10)
+        for number, item in enumerate(ingredients, start=1):
+            if begin_position_y < 100:
+                begin_position_y = 730
+                canvas.showPage()
+                canvas.setFont('DejaVuSerif', 12)
+            canvas.drawString(
+                begin_position_x,
+                begin_position_y,
+                f'№{number}: {item["name"]} - '
+                f'{item["total"]}'
+                f' {item["unit"]}'
             )
-        file_shopping_list = '\n'.join(shopping_list)
-
-        response = HttpResponse(file_shopping_list, content_type='text/plain')
-        response[
-            'Content-Disposition'
-        ] = 'attachment; filename=shopping-list.txt'
+            begin_position_y -= 30
+        canvas.showPage()
+        canvas.save()
 
         return response

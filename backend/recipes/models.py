@@ -2,16 +2,19 @@ from django.core.validators import MinValueValidator
 from django.db import models
 
 from users.models import User
+from .validators import validate_color
+
+LENGTH = 200
 
 
 class Ingredient(models.Model):
     name = models.CharField(
-        max_length=200,
+        max_length=LENGTH,
         verbose_name='Название ингредиента',
         help_text='Название ингредиента',
     )
     measurement_unit = models.CharField(
-        max_length=200,
+        max_length=LENGTH,
         verbose_name='Единица измерения ингредиента',
         help_text='Единица измерения ингредиента',
     )
@@ -19,6 +22,7 @@ class Ingredient(models.Model):
     class Meta:
         verbose_name = 'Ингредиент'
         verbose_name_plural = 'Ингредиенты'
+        ordering = ('name',)
 
     def __str__(self):
         return self.name
@@ -26,7 +30,7 @@ class Ingredient(models.Model):
 
 class Tag(models.Model):
     name = models.CharField(
-        max_length=200,
+        max_length=LENGTH,
         verbose_name='Название тега',
         help_text='Название тега',
     )
@@ -34,9 +38,10 @@ class Tag(models.Model):
         max_length=7,
         verbose_name='Цвет тега',
         help_text='Цвет тега',
+        validators=[validate_color,],
     )
     slug = models.SlugField(
-        max_length=200,
+        max_length=LENGTH,
         unique=True,
         verbose_name='Слаг тега',
         help_text='Слаг тега',
@@ -45,6 +50,7 @@ class Tag(models.Model):
     class Meta:
         verbose_name = 'Тег'
         verbose_name_plural = 'Теги'
+        ordering = ('name',)
 
     def __str__(self):
         return self.name
@@ -58,7 +64,7 @@ class Recipe(models.Model):
         on_delete=models.CASCADE,
     )
     name = models.CharField(
-        max_length=200,
+        max_length=LENGTH,
         verbose_name='Название рецепта',
         help_text='Название рецепта',
     )
@@ -123,6 +129,10 @@ class RecipeTags(models.Model):
     class Meta:
         verbose_name = 'Теги'
         verbose_name_plural = 'Теги'
+        ordering = ('tag',)
+
+    def __str__(self):
+        return f"У рецепта {self.recipe} есть тег {self.tag}"
 
 
 class RecipeIngredients(models.Model):
@@ -144,6 +154,10 @@ class RecipeIngredients(models.Model):
     class Meta:
         verbose_name = 'Ингредиенты'
         verbose_name_plural = 'Ингредиенты'
+        ordering = ('recipe',)
+
+    def __str__(self):
+        return f"В рецепте {self.recipe} есть ингредиент {self.ingredient}"  
 
 
 class Favorite(models.Model):
@@ -163,6 +177,7 @@ class Favorite(models.Model):
     class Meta:
         verbose_name = 'Избранное'
         verbose_name_plural = 'Избранное'
+        ordering = ('recipe',)
 
     def __str__(self):
         return f'Избранное пользователя {self.user}'
@@ -185,3 +200,9 @@ class ShoppingCart(models.Model):
     class Meta:
         verbose_name = 'Список покупок'
         verbose_name_plural = 'Список покупок'
+        ordering = ('recipe',)
+
+    def __str__(self):
+        return (
+            f"Рецепт {self.recipe} в списке покупок у пользователя {self.user}"
+        )

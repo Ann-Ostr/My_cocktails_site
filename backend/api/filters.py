@@ -1,4 +1,4 @@
-from django_filters import ModelMultipleChoiceFilter
+from django_filters import AllValuesMultipleFilter, ModelMultipleChoiceFilter
 from django_filters.rest_framework import FilterSet, filters
 
 from recipes.models import Recipe, Tag
@@ -11,23 +11,17 @@ class RecipeTagFilter(FilterSet):
         method="in_shopping_cart_method"
     )
     author = filters.ModelChoiceFilter(queryset=User.objects.all())
-    tags = ModelMultipleChoiceFilter(
-        field_name="tags__slug",
-        to_field_name="slug",
-        queryset=Tag.objects.all(),
-    )
+    tags = AllValuesMultipleFilter(field_name='tags__slug')
 
     def favorited_method(self, queryset, name, value):
         if queryset.filter(favorite__user=self.request.user).exists():
             return queryset.filter(favorite__user=self.request.user)
-        else:
-            return queryset
+        return queryset
 
     def in_shopping_cart_method(self, queryset, name, value):
         if queryset.filter(shopping_cart__user=self.request.user).exists():
             return queryset.filter(shopping_cart__user=self.request.user)
-        else:
-            return queryset
+        return queryset
 
     class Meta:
         model = Recipe
