@@ -4,6 +4,10 @@ from django.core.files.base import ContentFile
 from django.core.validators import MinValueValidator
 from django.shortcuts import get_object_or_404
 from djoser.serializers import UserCreateSerializer, UserSerializer
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfgen.canvas import Canvas
 from rest_framework import exceptions, serializers
 
 from api.pagination import PageNumberPagination
@@ -45,18 +49,6 @@ class RecipeIngredientsSerializer(serializers.ModelSerializer):
     name = serializers.ReadOnlyField(source='ingredient.name')
     measurement_unit = serializers.ReadOnlyField(
         source='ingredient.measurement_unit')
-    # name = serializers.SerializerMethodField()
-    # measurement_unit = serializers.SerializerMethodField()
-
-    # # def get_name(self, obj):
-    # #     ingredients = Ingredient.objects.filter(id=obj.ingredient_id)
-    # #     serializer = IngredientSerializer(ingredients, many=True)
-    # #     return serializer.data[0]['name']
-
-    # def get_measurement_unit(self, obj):
-    #     ingredients = Ingredient.objects.filter(id=obj.ingredient_id)
-    #     serializer = IngredientSerializer(ingredients, many=True)
-    #     return serializer.data[0]['measurement_unit']
 
     class Meta:
         model = RecipeIngredients
@@ -135,6 +127,32 @@ class RecipeSerializer(serializers.ModelSerializer):
             user=user_id, recipe=obj.id
         ).exists()
 
+    @staticmethod
+    def draw_shopping_cart(response, ingredients):
+        begin_position_x, begin_position_y = 30, 730
+        canvas = Canvas(response, pagesize=A4)
+        pdfmetrics.registerFont(TTFont('DejaVuSerif', 'DejaVuSerif.ttf'))
+        canvas.setFont('DejaVuSerif', 14)
+        canvas.setTitle('СПИСОК ПОКУПОК')
+        canvas.drawString(begin_position_x,
+                          begin_position_y + 40, 'Список покупок: ')
+        canvas.setFont('DejaVuSerif', 10)
+        for number, item in enumerate(ingredients, start=1):
+            if begin_position_y < 100:
+                begin_position_y = 730
+                canvas.showPage()
+                canvas.setFont('DejaVuSerif', 12)
+            canvas.drawString(
+                begin_position_x,
+                begin_position_y,
+                f'№{number}: {item["name"]} - '
+                f'{item["total"]}'
+                f' {item["unit"]}'
+            )
+            begin_position_y -= 30
+        canvas.showPage()
+        canvas.save()
+
     class Meta:
         model = Recipe
         fields = ('id', 'tags', 'author', 'ingredients', 'is_favorited',
@@ -172,12 +190,8 @@ class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
     def validate_tags(self, value):
         if not value:
             raise exceptions.ValidationError('Тег не может быть пустым')
-        tag_set = set()
-        tag_list = list()
-        for i in value:
-            tag_set.add(i)
-            tag_list.append(i)
-        if len(tag_set) != len(tag_list):
+        tags = [tag for tag in value]
+        if len(set(tags)) != len(tags):
             raise exceptions.ValidationError('Теги в рецепте повторяются')
         return value
 
@@ -189,44 +203,22 @@ class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
         # Создадим новый рецепт пока без инг. и тегов
         recipe = Recipe.objects.create(author=author, **validated_data)
         recipe.tags.set(tags)
-        all_recipe_inredients = list()
-        for ingredient in ingredients:
-            amount = ingredient.get('amount')
-            ingredient = get_object_or_404(
-                Ingredient, pk=ingredient.get('id').id)
-            recipe_ingreients = RecipeIngredients(recipe=recipe,
-                                                  ingredient=ingredient,
-                                                  amount=amount)
-            all_recipe_inredients.append(recipe_ingreients)
-        RecipeIngredients.objects.bulk_create(all_recipe_inredients)
+        RecipeCreateUpdateSerializer.create_update_ingredients(self,
+                                                               ingredients,
+                                                               recipe)
         return recipe
 
-    def get_image_url(self, obj):
-        if obj.image:
-            return obj.image.url
-        return None
-
     def update(self, instance, validated_data):
-        # if validated_data.pop('tags').exist():
         tags = validated_data.pop('tags', None)
         if tags is not None:
             instance.tags.set(tags)
         else:
             raise exceptions.ValidationError('Поле тег в рецепте должно быть')
-
         ingrs = validated_data.pop('ingredients', None)
         if ingrs is not None:
             instance.ingredients.clear()
-            for ingr in ingrs:
-                amount = ingr.get('amount')
-                ingr_id = get_object_or_404(
-                    Ingredient, name=ingr.get('id'))
-
-                RecipeIngredients.objects.update_or_create(
-                    recipe=instance,
-                    ingredient=ingr_id,
-                    defaults={'amount': amount},
-                )
+            RecipeCreateUpdateSerializer.create_update_ingredients(
+                self, ingrs, instance)
         else:
             raise exceptions.ValidationError('Поле ингридиент должно быть')
         return super().update(instance, validated_data)
@@ -236,6 +228,23 @@ class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
             instance, context={'request': self.context.get('request')}
         )
         return serializer.data
+
+    def get_image_url(self, obj):
+        if obj.image:
+            return obj.image.url
+        return None
+
+    @staticmethod
+    def create_update_ingredients(self, ingredients, recip):
+        all_recipe_inredients = list()
+        for ingr in ingredients:
+            amount = ingr.get('amount')
+            ingr_id = get_object_or_404(Ingredient, name=ingr.get('id'))
+            recipe_ingreients = RecipeIngredients(recipe=recip,
+                                                  ingredient=ingr_id,
+                                                  amount=amount)
+            all_recipe_inredients.append(recipe_ingreients)
+        RecipeIngredients.objects.bulk_create(all_recipe_inredients)
 
     class Meta:
         model = Recipe
@@ -262,7 +271,6 @@ class SubscriptionSerializer(CustomUserSerializer,
 
     def get_recipes(self, obj):
         # список рецептов fатора
-        from api.serializers import RecipeSubscibeSerializer
         author_recipes = obj.author.recipes.all()
         if author_recipes:
             serializer = RecipeSubscibeSerializer(
