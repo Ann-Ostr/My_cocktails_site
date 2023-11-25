@@ -4,10 +4,7 @@ from django.core.files.base import ContentFile
 from django.core.validators import MinValueValidator
 from django.shortcuts import get_object_or_404
 from djoser.serializers import UserCreateSerializer, UserSerializer
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.pdfgen.canvas import Canvas
+
 from rest_framework import exceptions, serializers
 
 from api.pagination import PageNumberPagination
@@ -127,32 +124,7 @@ class RecipeSerializer(serializers.ModelSerializer):
             user=user_id, recipe=obj.id
         ).exists()
 
-    @staticmethod
-    def draw_shopping_cart(response, ingredients):
-        begin_position_x, begin_position_y = 30, 730
-        canvas = Canvas(response, pagesize=A4)
-        pdfmetrics.registerFont(TTFont('DejaVuSerif', 'DejaVuSerif.ttf'))
-        canvas.setFont('DejaVuSerif', 14)
-        canvas.setTitle('СПИСОК ПОКУПОК')
-        canvas.drawString(begin_position_x,
-                          begin_position_y + 40, 'Список покупок: ')
-        canvas.setFont('DejaVuSerif', 10)
-        for number, item in enumerate(ingredients, start=1):
-            if begin_position_y < 100:
-                begin_position_y = 730
-                canvas.showPage()
-                canvas.setFont('DejaVuSerif', 12)
-            canvas.drawString(
-                begin_position_x,
-                begin_position_y,
-                f'№{number}: {item["name"]} - '
-                f'{item["total"]}'
-                f' {item["unit"]}'
-            )
-            begin_position_y -= 30
-        canvas.showPage()
-        canvas.save()
-
+   
     class Meta:
         model = Recipe
         fields = ('id', 'tags', 'author', 'ingredients', 'is_favorited',
@@ -203,7 +175,7 @@ class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
         # Создадим новый рецепт пока без инг. и тегов
         recipe = Recipe.objects.create(author=author, **validated_data)
         recipe.tags.set(tags)
-        RecipeCreateUpdateSerializer.create_update_ingredients(self,
+        self.create_update_ingredients(self,
                                                                ingredients,
                                                                recipe)
         return recipe
@@ -217,7 +189,7 @@ class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
         ingrs = validated_data.pop('ingredients', None)
         if ingrs is not None:
             instance.ingredients.clear()
-            RecipeCreateUpdateSerializer.create_update_ingredients(
+            self.create_update_ingredients(
                 self, ingrs, instance)
         else:
             raise exceptions.ValidationError('Поле ингридиент должно быть')

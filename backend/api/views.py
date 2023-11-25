@@ -16,6 +16,7 @@ from api.serializers import (IngredientSerializer,
                              RecipeCreateUpdateSerializer, RecipeSerializer,
                              RecipeSubscibeSerializer, SubscriptionSerializer,
                              TagSerializer)
+from api.utils import draw_shopping_cart
 from recipes.models import (Favorite, Ingredient, Recipe, RecipeIngredients,
                             ShoppingCart, Tag)
 from users.models import Subscription, User
@@ -171,5 +172,5 @@ class RecipeViewSet(viewsets.ModelViewSet):
             content_type='application/pdf')
         response['Content-Disposition'] = (
             'attachment; filename="shopping-list.pdf"')
-        RecipeSerializer.draw_shopping_cart(response, ingredients)
+        draw_shopping_cart(response, ingredients)
         return response
