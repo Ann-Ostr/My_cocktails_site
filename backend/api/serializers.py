@@ -4,7 +4,6 @@ from django.core.files.base import ContentFile
 from django.core.validators import MinValueValidator
 from django.shortcuts import get_object_or_404
 from djoser.serializers import UserCreateSerializer, UserSerializer
-
 from rest_framework import exceptions, serializers
 
 from api.pagination import PageNumberPagination
@@ -124,7 +123,6 @@ class RecipeSerializer(serializers.ModelSerializer):
             user=user_id, recipe=obj.id
         ).exists()
 
-   
     class Meta:
         model = Recipe
         fields = ('id', 'tags', 'author', 'ingredients', 'is_favorited',
@@ -175,9 +173,7 @@ class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
         # Создадим новый рецепт пока без инг. и тегов
         recipe = Recipe.objects.create(author=author, **validated_data)
         recipe.tags.set(tags)
-        self.create_update_ingredients(self,
-                                                               ingredients,
-                                                               recipe)
+        self.create_update_ingredients(self, ingredients, recipe)
         return recipe
 
     def update(self, instance, validated_data):
