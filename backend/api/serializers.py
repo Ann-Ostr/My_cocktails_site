@@ -1,7 +1,7 @@
 import base64
 
 from django.core.files.base import ContentFile
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.shortcuts import get_object_or_404
 from djoser.serializers import UserCreateSerializer, UserSerializer
 from rest_framework import exceptions, serializers
@@ -93,7 +93,8 @@ class CreateUpdateRecipeIngredientsSerializer(serializers.ModelSerializer):
     # проверка мин.кол-ва ингридиента
     id = serializers.PrimaryKeyRelatedField(queryset=Ingredient.objects.all())
     amount = serializers.IntegerField(
-        validators=(MinValueValidator(1, message='Не может быть меньше 1'),)
+        validators=(MinValueValidator(1, message='Не может быть меньше 1'),
+                    MaxValueValidator(5000, 'Не может быть больше 5000'),)
     )
 
     class Meta:
@@ -143,7 +144,8 @@ class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
     )
     cooking_time = serializers.IntegerField(
         validators=(
-            MinValueValidator(1, message='Не может быть меньше 1'),)
+            MinValueValidator(1, message='Не может быть меньше 1'),
+            MaxValueValidator(1440, 'Не может быть больше суток'),),
     )
 
     # Проверка ингридиентов для рецепта
