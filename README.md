@@ -14,6 +14,7 @@
     - nginx.conf
     - .env (пустой)
 4. Файл .env должен быть заполнен следующими данными(исходя из того, что используется PostegreSQL):
+   
 ```
 SECRET_KEY=<КЛЮЧ>
 DB_ENGINE=django.db.backends.postgresql
